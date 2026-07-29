@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+
+#ddev-generated
+## Command provided by the upkeep add-on (https://github.com/owenbush/ddev-upkeep)
+## Description: Create a named fixture (gzipped SQL dump) from the current database. Sanitizes by default when the destination is the module repo. Warns when the dump exceeds 5 MB (override with UPKEEP_FIXTURE_SIZE_WARN_MB).
+## Usage: fixture-create <name> [--dest=module|library] [--no-sanitize]
+## Example: "ddev fixture-create smoke" or "ddev fixture-create smoke --dest=library" or "ddev fixture-create smoke --no-sanitize"
+
+set -eu -o pipefail
+
+# shellcheck disable=SC1091
+. "${DDEV_APPROOT}/.ddev/upkeep/fixtures-lib.sh"
+UPKEEP_COMMAND_NAME="fixture-create"
+upkeep_load_env
+
+name=""
+dest=""
+sanitize="default"
+for arg in "$@"; do
+  case "$arg" in
+    --dest=module|--dest=library) dest="${arg#--dest=}" ;;
+    --dest=*)
+      upkeep_error "Invalid --dest '${arg#--dest=}'. Use --dest=module or --dest=library."
+      exit 1
+      ;;
+    --no-sanitize) sanitize="no" ;;
+    --*)
+      upkeep_error "Unknown flag '$arg'. Usage: ddev fixture-create <name> [--dest=module|library] [--no-sanitize]"
+      exit 1
+      ;;
+    *)
+      if [ -n "$name" ]; then
+        upkeep_error "Unexpected extra argument '$arg'."
+        exit 1
+      fi
+      name="$arg"
+      ;;
+  esac
+done
+
+upkeep_require_name "$name"
+upkeep_require_running
+
+# Default destination: module when the project root is a module checkout,
+# library otherwise.
+if [ -z "$dest" ]; then
+  if upkeep_is_module_checkout; then
+    dest="module"
+  else
+    dest="library"
+  fi
+fi
+
+if [ "$dest" = "module" ]; then
+  if ! upkeep_is_module_checkout; then
+    upkeep_error "--dest=module requested but no *.info.yml found at ${DDEV_APPROOT}; this does not look like a module checkout."
+    exit 1
+  fi
+  dest_dir="$(upkeep_module_fixtures_dir)"
+else
+  dest_dir="$(upkeep_library_dir)"
+fi
+dump_path="${dest_dir}/${name}.sql.gz"
+
+# Sanitize by default when the dump is destined for a module repo (it will be
+# committed and public); skip with --no-sanitize.
+if [ "$dest" = "module" ] && [ "$sanitize" != "no" ]; then
+  echo "Destination is the module repo: sanitizing the database with 'drush sql:sanitize' (skip with --no-sanitize)."
+  echo "Note: this modifies the current project database."
+  if ! ddev drush sql:sanitize -y; then
+    upkeep_error "'drush sql:sanitize' failed; fixture not created. Ensure drush is installed ('ddev composer require --dev drush/drush') and the site is installed, or re-run with --no-sanitize."
+    exit 1
+  fi
+fi
+
+mkdir -p "$dest_dir"
+echo "Exporting database to ${dump_path} ..."
+if ! ddev export-db --file="$dump_path" --gzip; then
+  upkeep_error "Database export failed; fixture not created."
+  exit 1
+fi
+
+size_bytes="$(upkeep_file_size_bytes "$dump_path")"
+warn_mb="${UPKEEP_FIXTURE_SIZE_WARN_MB:-$UPKEEP_DEFAULT_SIZE_WARN_MB}"
+warn_bytes=$((warn_mb * 1024 * 1024))
+echo "Created fixture '${name}' (${dest} scope): ${dump_path} ($(upkeep_human_size "$size_bytes"))"
+if [ "$size_bytes" -gt "$warn_bytes" ]; then
+  echo "WARNING: dump is $(upkeep_human_size "$size_bytes"), which exceeds the ${warn_mb} MB threshold. Committed fixtures should stay lean — consider trimming content/cache tables before dumping."
+fi

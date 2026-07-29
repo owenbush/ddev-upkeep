@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+
+#ddev-generated
+## Command provided by the upkeep add-on (https://github.com/owenbush/ddev-upkeep)
+## Description: List available fixtures in both scopes (module tests/fixtures/ and the shared library), with dump size and whether a materialized snapshot exists.
+## Usage: fixture-list
+## Example: "ddev fixture-list"
+
+set -eu -o pipefail
+
+# shellcheck disable=SC1091
+. "${DDEV_APPROOT}/.ddev/upkeep/fixtures-lib.sh"
+UPKEEP_COMMAND_NAME="fixture-list"
+upkeep_load_env
+
+module_dir="$(upkeep_module_fixtures_dir)"
+library_dir="$(upkeep_library_dir)"
+
+module_names=""
+found=0
+
+print_row() {
+  # name scope size snapshot note
+  printf '%-20s %-9s %-10s %-10s %s\n' "$1" "$2" "$3" "$4" "$5"
+}
+
+print_row "NAME" "SCOPE" "SIZE" "SNAPSHOT" "NOTE"
+
+if upkeep_is_module_checkout && [ -d "$module_dir" ]; then
+  for dump in "$module_dir"/*.sql.gz; do
+    [ -f "$dump" ] || continue
+    found=1
+    name="$(basename "$dump" .sql.gz)"
+    module_names="${module_names} ${name} "
+    snap="no"
+    upkeep_snapshot_exists "$name" && snap="yes"
+    print_row "$name" "module" "$(upkeep_human_size "$(upkeep_file_size_bytes "$dump")")" "$snap" ""
+  done
+fi
+
+if [ -d "$library_dir" ]; then
+  for dump in "$library_dir"/*.sql.gz; do
+    [ -f "$dump" ] || continue
+    found=1
+    name="$(basename "$dump" .sql.gz)"
+    note=""
+    case "$module_names" in
+      *" ${name} "*) note="(shadowed by module fixture)" ;;
+    esac
+    snap="no"
+    # A snapshot only applies to the fixture that resolution would pick.
+    if [ -z "$note" ]; then
+      upkeep_snapshot_exists "$name" && snap="yes"
+    else
+      snap="-"
+    fi
+    print_row "$name" "library" "$(upkeep_human_size "$(upkeep_file_size_bytes "$dump")")" "$snap" "$note"
+  done
+fi
+
+if [ "$found" -eq 0 ]; then
+  echo "(no fixtures found)"
+fi
+
+echo ""
+if upkeep_is_module_checkout; then
+  echo "Module fixtures:  ${module_dir}"
+else
+  echo "Module fixtures:  (not a module checkout; module scope inactive)"
+fi
+echo "Fixture library:  ${library_dir}"
+echo "Resolution order: module first, then library."

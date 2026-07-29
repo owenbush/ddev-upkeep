@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+
+#ddev-generated
+## Command provided by the upkeep add-on (https://github.com/owenbush/ddev-upkeep)
+## Description: Load a named fixture into the database. First load imports the SQL dump and materializes a snapshot; later loads restore the snapshot (fast path). Resolution is module tests/fixtures/ first, then the shared library.
+## Usage: fixture-load <name>
+## Example: "ddev fixture-load smoke"
+
+set -eu -o pipefail
+
+# shellcheck disable=SC1091
+. "${DDEV_APPROOT}/.ddev/upkeep/fixtures-lib.sh"
+UPKEEP_COMMAND_NAME="fixture-load"
+upkeep_load_env
+
+name="${1:-}"
+upkeep_require_name "$name"
+if [ "$#" -gt 1 ]; then
+  upkeep_error "Unexpected extra argument '${2}'. Usage: ddev fixture-load <name>"
+  exit 1
+fi
+upkeep_require_running
+
+if ! resolved="$(upkeep_resolve_fixture "$name")"; then
+  searched="$(upkeep_library_dir)/${name}.sql.gz"
+  if upkeep_is_module_checkout; then
+    searched="$(upkeep_module_fixtures_dir)/${name}.sql.gz, then ${searched}"
+  fi
+  upkeep_error "Fixture '${name}' not found. Searched: ${searched}. Run 'ddev fixture-list' to see available fixtures."
+  exit 1
+fi
+scope="${resolved%%$'\t'*}"
+dump_path="${resolved#*$'\t'}"
+
+artifact="$(upkeep_materialized_file "$name")"
+meta_file="$(upkeep_meta_file "$name")"
+engine="$(upkeep_engine_id)"
+dump_sha="$(upkeep_sha256 "$dump_path")"
+
+start_ts="$(date +%s)"
+
+# Fast path: a materialized snapshot artifact exists and still matches the
+# current DB engine and the current dump contents.
+if upkeep_snapshot_exists "$name" && [ -f "$meta_file" ]; then
+  meta_engine="$(sed -n 's/^engine=//p' "$meta_file")"
+  meta_sha="$(sed -n 's/^dump_sha256=//p' "$meta_file")"
+  if [ "$meta_engine" = "$engine" ] && [ "$meta_sha" = "$dump_sha" ]; then
+    echo "Fixture '${name}' (${scope} scope): restoring from materialized snapshot ..."
+    case "$engine" in
+      postgres*)
+        restore_ok=0
+        ddev import-db --file="$artifact" && restore_ok=1
+        ;;
+      *)
+        restore_ok=0
+        { echo "DROP DATABASE IF EXISTS db; CREATE DATABASE db; USE db;"; cat "$artifact"; } | ddev mysql && restore_ok=1
+        ;;
+    esac
+    if [ "$restore_ok" -eq 1 ]; then
+      echo "Loaded fixture '${name}': restored from materialized snapshot in $(( $(date +%s) - start_ts ))s (fast path)."
+      exit 0
+    fi
+    echo "Materialized snapshot restore failed; falling back to importing the dump." >&2
+  else
+    echo "Materialized snapshot for '${name}' is stale (engine or dump changed); rebuilding from dump."
+  fi
+fi
+
+# Slow path: import the portable dump, then materialize the snapshot artifact
+# for next time.
+echo "Fixture '${name}' (${scope} scope): importing dump ${dump_path} ..."
+if ! ddev import-db --file="$dump_path"; then
+  upkeep_error "Import of '${dump_path}' failed."
+  exit 1
+fi
+
+mkdir -p "$(upkeep_materialized_dir)" "$(upkeep_meta_dir)"
+if ! gunzip -c "$dump_path" > "$artifact"; then
+  rm -f "$artifact" "$meta_file"
+  upkeep_error "Dump imported, but snapshot materialization failed; the next load will import the dump again."
+  exit 1
+fi
+{
+  echo "engine=${engine}"
+  echo "dump_sha256=${dump_sha}"
+  echo "dump_path=${dump_path}"
+  echo "artifact=${artifact}"
+  echo "materialized_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+} > "$meta_file"
+
+echo "Loaded fixture '${name}': imported dump and materialized snapshot in $(( $(date +%s) - start_ts ))s (first-use path; subsequent loads restore the snapshot)."

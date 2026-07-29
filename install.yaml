@@ -2,5 +2,10 @@ name: upkeep
 
 project_files:
   - docker-compose.upkeep.yaml
+  - commands/host/fixture-create
+  - commands/host/fixture-load
+  - commands/host/fixture-list
+  - commands/host/fixture-prune
+  - upkeep/fixtures-lib.sh
 
 ddev_version_constraint: '>= v1.24.10'
