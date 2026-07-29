@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+
+#ddev-generated
+## Command provided by the upkeep add-on (https://github.com/owenbush/ddev-upkeep)
+## Description: Delete this project's disposable materialized fixture snapshots (and their metadata). Never touches the portable .sql.gz dumps; they can rebuild the snapshots at any time.
+## Usage: fixture-prune
+## Example: "ddev fixture-prune"
+
+set -eu -o pipefail
+
+# shellcheck disable=SC1091
+. "${DDEV_APPROOT}/.ddev/upkeep/fixtures-lib.sh"
+UPKEEP_COMMAND_NAME="fixture-prune"
+upkeep_load_env
+
+if [ "$#" -gt 0 ]; then
+  upkeep_error "fixture-prune takes no arguments; it removes all of this project's materialized fixture snapshots."
+  exit 1
+fi
+
+removed=0
+
+# Materialized snapshot artifacts.
+materialized_dir="$(upkeep_materialized_dir)"
+if [ -d "$materialized_dir" ]; then
+  for artifact in "$materialized_dir"/*.sql; do
+    [ -f "$artifact" ] || continue
+    echo "Removing materialized snapshot: ${artifact}"
+    rm -f "$artifact"
+    removed=$((removed + 1))
+  done
+fi
+
+# Materialization metadata.
+meta_dir="$(upkeep_meta_dir)"
+if [ -d "$meta_dir" ]; then
+  for meta in "$meta_dir"/*.meta; do
+    [ -f "$meta" ] || continue
+    echo "Removing snapshot metadata: ${meta}"
+    rm -f "$meta"
+  done
+fi
+
+# Any ddev-native snapshots this add-on materialized (legacy mechanism).
+snap_dir="${DDEV_APPROOT}/.ddev/db_snapshots"
+if [ -d "$snap_dir" ]; then
+  for snap in "$snap_dir/${UPKEEP_SNAPSHOT_PREFIX}"*; do
+    [ -e "$snap" ] || continue
+    echo "Removing materialized ddev snapshot: ${snap}"
+    rm -rf "$snap"
+    removed=$((removed + 1))
+  done
+fi
+
+if [ "$removed" -eq 0 ]; then
+  echo "No materialized fixture snapshots to remove for project '${DDEV_PROJECT:-?}'."
+else
+  echo "Removed ${removed} materialized snapshot(s). Fixture dumps (.sql.gz) were not touched; the next 'ddev fixture-load' will rebuild snapshots from them."
+fi
