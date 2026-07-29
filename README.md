@@ -22,8 +22,14 @@ After installation, make sure to commit the `.ddev` directory to version control
 
 | Command | Description |
 | ------- | ----------- |
+| `ddev fixture-create <name> [--dest=module\|library] [--no-sanitize]` | Dump the current DB to a portable fixture (`<name>.sql.gz`). Sanitizes via `drush sql:sanitize` by default when destined for the module repo. Warns when the dump exceeds 5 MB (`UPKEEP_FIXTURE_SIZE_WARN_MB`) |
+| `ddev fixture-load <name>` | Load a fixture: first use imports the dump and materializes a snapshot; later loads restore the snapshot (fast path). Module `tests/fixtures/` shadows the shared library |
+| `ddev fixture-list` | List fixtures in both scopes with size and snapshot state |
+| `ddev fixture-prune` | Delete this project's disposable materialized snapshots (never the `.sql.gz` dumps) |
 | `ddev describe` | View service status and used ports for Upkeep |
 | `ddev logs -s upkeep` | Check Upkeep logs |
+
+Fixtures resolve module-first: `tests/fixtures/<name>.sql.gz` in the module checkout, then the shared library (`UPKEEP_FIXTURE_LIBRARY`, defaulting to `$UPKEEP_COCKPIT/fixtures`, defaulting to `~/.upkeep/fixtures`).
 
 ## Advanced Customization
 
@@ -42,6 +48,8 @@ All customization options (use with caution):
 | Variable | Flag | Default |
 | -------- | ---- | ------- |
 | `UPKEEP_DOCKER_IMAGE` | `--upkeep-docker-image` | `ddev/ddev-utilities:latest` |
+| `UPKEEP_FIXTURE_LIBRARY` | `--upkeep-fixture-library` | `$UPKEEP_COCKPIT/fixtures`, else `~/.upkeep/fixtures` |
+| `UPKEEP_FIXTURE_SIZE_WARN_MB` | `--upkeep-fixture-size-warn-mb` | `5` |
 
 ## Credits
 
