@@ -7,7 +7,16 @@
 
 ## Overview
 
-This add-on integrates Upkeep into your [DDEV](https://ddev.com/) project.
+This add-on integrates Upkeep into your [DDEV](https://ddev.com/) project: it
+provides named database **fixtures** — create a gzipped SQL dump of the
+current database, reload it later in seconds, and share it via the module's
+own repository or a local fixture library.
+
+It is the fixture layer of the
+[Upkeep](https://github.com/owenbush/upkeep) maintenance orchestrator (which
+installs it into every environment it provisions), but it is equally usable
+standalone in any Drupal ddev project — in particular a module checkout using
+[ddev-drupal-contrib](https://github.com/ddev/ddev-drupal-contrib).
 
 ## Installation
 
@@ -17,6 +26,18 @@ ddev restart
 ```
 
 After installation, make sure to commit the `.ddev` directory to version control.
+
+> **Until this repository is public**, `ddev add-on get owenbush/ddev-upkeep`
+> returns a 404. Install from a local checkout instead:
+>
+> ```bash
+> ddev add-on get /path/to/ddev-upkeep
+> ddev restart
+> ```
+>
+> Upkeep orchestrator users: set `UPKEEP_ADDON_SOURCE=/path/to/ddev-upkeep`
+> and Upkeep will install the add-on from there. Both are temporary until
+> publication.
 
 ## Usage
 
@@ -31,15 +52,80 @@ After installation, make sure to commit the `.ddev` directory to version control
 
 Fixtures resolve module-first: `tests/fixtures/<name>.sql.gz` in the module checkout, then the shared library (`UPKEEP_FIXTURE_LIBRARY`, defaulting to `$UPKEEP_COCKPIT/fixtures`, defaulting to `~/.upkeep/fixtures`).
 
+## The fixture model: dumps vs. snapshots
+
+A fixture is a named gzipped SQL dump, `<name>.sql.gz`. **The dump is the
+portable source of truth** — it is what you commit, share, and keep.
+
+On first `ddev fixture-load`, the dump is imported and *materialized* into a
+fast-format snapshot artifact (`.ddev/upkeep/materialized/<name>.sql`,
+streamed straight into the DB server on restore). Subsequent loads restore
+that snapshot, which is much faster than re-importing the dump. A metadata
+file records the DB engine identity and the dump's checksum at
+materialization time; if either changes — you upgraded the database engine,
+or the dump was updated — the snapshot is considered stale and is rebuilt
+from the dump on the next load.
+
+Materialized snapshots are **disposable, engine-tied local caches — never
+authoritative**. `ddev fixture-prune` deletes them (and only them); the next
+load rebuilds from the dump. Don't commit them.
+
+### Resolution order
+
+`fixture-load` resolves a name per-module first:
+
+1. **Module scope:** `tests/fixtures/<name>.sql.gz` in the project root, when
+   the project root is a module checkout (an `*.info.yml` at the root — the
+   ddev-drupal-contrib layout).
+2. **Library scope:** `$UPKEEP_FIXTURE_LIBRARY`, defaulting to
+   `$UPKEEP_COCKPIT/fixtures`, defaulting to `~/.upkeep/fixtures`.
+
+A module fixture always shadows a same-named library fixture. Configuration
+can come from the caller's environment or from `.ddev/.env.upkeep` (the ddev
+dotenv convention); real environment variables win over the dotenv file.
+
+## The `tests/fixtures/` convention (for module maintainers)
+
+This section stands alone: it applies to any Drupal contrib module, whether
+or not you or your co-maintainers use Upkeep or this add-on.
+
+- **Path.** Database fixtures live in `tests/fixtures/` in the module
+  repository, alongside the module's other test resources.
+- **Format and naming.** One gzipped SQL dump per fixture:
+  `tests/fixtures/<name>.sql.gz`. Names are lowercase, filesystem-safe
+  (letters, digits, dot, dash, underscore), and describe the state the
+  fixture provides — e.g. `smoke.sql.gz`, `two-vocabularies.sql.gz`,
+  `upgrade-from-2x.sql.gz`.
+- **Sanitization is mandatory.** A committed fixture is public data. Never
+  dump a database containing real user accounts, e-mail addresses, personal
+  data, or secrets — sanitize first (e.g. `drush sql:sanitize`) or build the
+  fixture from a scratch install that never held real data.
+  (`ddev fixture-create` runs `drush sql:sanitize` for you by default when
+  the destination is the module repo; `--no-sanitize` opts out for databases
+  that are already clean.)
+- **Keep them lean.** A fixture should contain the *minimum* state that makes
+  it useful: a minimal-profile install plus the entities your tests need, not
+  a production copy. Gzipped SQL of a minimal Drupal install is well under
+  5 MB; treat anything larger as a smell (this add-on warns at that
+  threshold) and megabytes of it are usually cache and log tables — truncate
+  them before dumping.
+
+Anyone with this add-on can then load your fixture with
+`ddev fixture-load <name>`; anyone without it can simply
+`gunzip -c tests/fixtures/<name>.sql.gz` and import it with the tool of
+their choice.
+
 ## Advanced Customization
 
 To change the Docker image:
 
 ```bash
 ddev dotenv set .ddev/.env.upkeep --upkeep-docker-image="ddev/ddev-utilities:latest"
-ddev add-on get owenbush/ddev-upkeep
 ddev restart
 ```
+
+then re-run the `ddev add-on get` you installed with (see Installation) if
+you want the change reflected in a fresh add-on install.
 
 Make sure to commit the `.ddev/.env.upkeep` file to version control.
 
@@ -50,6 +136,14 @@ All customization options (use with caution):
 | `UPKEEP_DOCKER_IMAGE` | `--upkeep-docker-image` | `ddev/ddev-utilities:latest` |
 | `UPKEEP_FIXTURE_LIBRARY` | `--upkeep-fixture-library` | `$UPKEEP_COCKPIT/fixtures`, else `~/.upkeep/fixtures` |
 | `UPKEEP_FIXTURE_SIZE_WARN_MB` | `--upkeep-fixture-size-warn-mb` | `5` |
+
+## Testing and verification
+
+The bats test suite and how to run it (including the shim-HOME setup some
+macOS configurations need) are documented in
+[docs/testing.md](docs/testing.md). A recorded end-to-end pass against a real
+contrib module is in
+[docs/manual-e2e-conditions-helper.md](docs/manual-e2e-conditions-helper.md).
 
 ## Credits
 
