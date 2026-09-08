@@ -39,14 +39,29 @@ After installation, make sure to commit the `.ddev` directory to version control
 > and Upkeep will install the add-on from there. Both are temporary until
 > publication.
 
+### Upgrading from the un-namespaced commands
+
+The fixture commands were `ddev fixture-create`, `-load`, `-list` and `-prune`
+until they were namespaced. `ddev` puts every add-on's host commands in one
+flat namespace per project, so a name as general as `fixture-load` claims
+ground this add-on has no business claiming — the next add-on that wants it
+has nowhere to go, and nothing in the name says where the command came from.
+
+Re-running `ddev add-on get` performs the upgrade: the namespaced commands are
+installed and the old ones are removed, so nothing is left behind under a name
+this add-on no longer documents. Removal is guarded on the file being ours —
+a `fixture-load` somebody else wrote is not this add-on's to delete.
+
+Update any scripts or CI that call the old names; there is no alias.
+
 ## Usage
 
 | Command | Description |
 | ------- | ----------- |
-| `ddev fixture-create <name> [--dest=module\|library] [--no-sanitize]` | Dump the current DB to a portable fixture (`<name>.sql.gz`). Sanitizes via `drush sql:sanitize` by default when destined for the module repo. Warns when the dump exceeds 5 MB (`UPKEEP_FIXTURE_SIZE_WARN_MB`) |
-| `ddev fixture-load <name>` | Load a fixture: first use imports the dump and materializes a snapshot; later loads restore the snapshot (fast path). Module `tests/fixtures/` shadows the shared library |
-| `ddev fixture-list` | List fixtures in both scopes with size and snapshot state |
-| `ddev fixture-prune` | Delete this project's disposable materialized snapshots (never the `.sql.gz` dumps) |
+| `ddev upkeep-fixture-create <name> [--dest=module\|library] [--no-sanitize]` | Dump the current DB to a portable fixture (`<name>.sql.gz`). Sanitizes via `drush sql:sanitize` by default when destined for the module repo. Warns when the dump exceeds 5 MB (`UPKEEP_FIXTURE_SIZE_WARN_MB`) |
+| `ddev upkeep-fixture-load <name>` | Load a fixture: first use imports the dump and materializes a snapshot; later loads restore the snapshot (fast path). Module `tests/fixtures/` shadows the shared library |
+| `ddev upkeep-fixture-list` | List fixtures in both scopes with size and snapshot state |
+| `ddev upkeep-fixture-prune` | Delete this project's disposable materialized snapshots (never the `.sql.gz` dumps) |
 | `ddev describe` | View service status and used ports for Upkeep |
 | `ddev logs -s upkeep` | Check Upkeep logs |
 
@@ -57,7 +72,7 @@ Fixtures resolve module-first: `tests/fixtures/<name>.sql.gz` in the module chec
 A fixture is a named gzipped SQL dump, `<name>.sql.gz`. **The dump is the
 portable source of truth** — it is what you commit, share, and keep.
 
-On first `ddev fixture-load`, the dump is imported and *materialized* into a
+On first `ddev upkeep-fixture-load`, the dump is imported and *materialized* into a
 fast-format snapshot artifact (`.ddev/upkeep/materialized/<name>.sql`,
 streamed straight into the DB server on restore). Subsequent loads restore
 that snapshot, which is much faster than re-importing the dump. A metadata
@@ -67,12 +82,12 @@ or the dump was updated — the snapshot is considered stale and is rebuilt
 from the dump on the next load.
 
 Materialized snapshots are **disposable, engine-tied local caches — never
-authoritative**. `ddev fixture-prune` deletes them (and only them); the next
+authoritative**. `ddev upkeep-fixture-prune` deletes them (and only them); the next
 load rebuilds from the dump. Don't commit them.
 
 ### Resolution order
 
-`fixture-load` resolves a name per-module first:
+`upkeep-fixture-load` resolves a name per-module first:
 
 1. **Module scope:** `tests/fixtures/<name>.sql.gz` in the project root, when
    the project root is a module checkout (an `*.info.yml` at the root — the
@@ -100,7 +115,7 @@ or not you or your co-maintainers use Upkeep or this add-on.
   dump a database containing real user accounts, e-mail addresses, personal
   data, or secrets — sanitize first (e.g. `drush sql:sanitize`) or build the
   fixture from a scratch install that never held real data.
-  (`ddev fixture-create` runs `drush sql:sanitize` for you by default when
+  (`ddev upkeep-fixture-create` runs `drush sql:sanitize` for you by default when
   the destination is the module repo; `--no-sanitize` opts out for databases
   that are already clean.)
 - **Keep them lean.** A fixture should contain the *minimum* state that makes
@@ -111,7 +126,7 @@ or not you or your co-maintainers use Upkeep or this add-on.
   them before dumping.
 
 Anyone with this add-on can then load your fixture with
-`ddev fixture-load <name>`; anyone without it can simply
+`ddev upkeep-fixture-load <name>`; anyone without it can simply
 `gunzip -c tests/fixtures/<name>.sql.gz` and import it with the tool of
 their choice.
 

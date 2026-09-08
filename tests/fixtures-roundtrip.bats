@@ -22,7 +22,7 @@ teardown() {
   upkeep_sql "CREATE TABLE upkeep_probe (id INT PRIMARY KEY, marker VARCHAR(64)); INSERT INTO upkeep_probe VALUES (1, 'val-original');"
 
   # Create the fixture. Bare project => library destination.
-  run ddev fixture-create smoke
+  run ddev upkeep-fixture-create smoke
   assert_success
   assert_output --partial "Created fixture 'smoke' (library scope)"
   assert_file_exist "${UPKEEP_FIXTURE_LIBRARY}/smoke.sql.gz"
@@ -35,7 +35,7 @@ teardown() {
   assert_output --partial "val-mutated"
 
   # First load: imports the dump and materializes the snapshot artifact.
-  run ddev fixture-load smoke
+  run ddev upkeep-fixture-load smoke
   assert_success
   assert_output --partial "(first-use path"
   assert_file_exist "${TESTDIR}/.ddev/upkeep/materialized/smoke.sql"
@@ -45,15 +45,15 @@ teardown() {
 
   # Mutate again; the second load must restore via the materialized snapshot.
   upkeep_sql "UPDATE upkeep_probe SET marker='val-mutated-again' WHERE id=1;"
-  run ddev fixture-load smoke
+  run ddev upkeep-fixture-load smoke
   assert_success
   assert_output --partial "(fast path)"
   refute_output --partial "(first-use path"
   run upkeep_sql "SELECT marker FROM upkeep_probe WHERE id=1;"
   assert_output --partial "val-original"
 
-  # fixture-list reports the fixture with its materialized snapshot.
-  run ddev fixture-list
+  # upkeep-fixture-list reports the fixture with its materialized snapshot.
+  run ddev upkeep-fixture-list
   assert_success
   assert_output --regexp "smoke +library +[0-9.]+ [KM]?B +yes"
 }

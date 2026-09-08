@@ -8,6 +8,13 @@ working tree.
 
 Environment: macOS (arm64), ddev v1.25.1, Docker via Colima, mariadb 11.8.
 
+> **The commands were renamed after this run.** What is transcribed below as
+> `ddev fixture-create` / `-load` / `-list` / `-prune` is now
+> `ddev upkeep-fixture-create` and so on. The transcript is left exactly as it
+> was recorded — it is evidence of what happened on 2026-07-30, and editing a
+> record of a real run to match later code is how a record stops being worth
+> keeping. Everything it establishes about behaviour still holds.
+
 ## Setup
 
 ```console

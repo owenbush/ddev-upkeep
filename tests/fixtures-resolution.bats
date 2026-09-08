@@ -29,31 +29,31 @@ teardown() {
 
   # Same-named fixture in both scopes, with distinguishable content.
   upkeep_sql "CREATE TABLE upkeep_probe (id INT PRIMARY KEY, marker VARCHAR(64)); INSERT INTO upkeep_probe VALUES (1, 'from-library');"
-  run ddev fixture-create dual --dest=library
+  run ddev upkeep-fixture-create dual --dest=library
   assert_success
   upkeep_sql "UPDATE upkeep_probe SET marker='from-module' WHERE id=1;"
-  run ddev fixture-create dual --dest=module --no-sanitize
+  run ddev upkeep-fixture-create dual --dest=module --no-sanitize
   assert_success
   assert_file_exist "${TESTDIR}/tests/fixtures/dual.sql.gz"
   assert_file_exist "${UPKEEP_FIXTURE_LIBRARY}/dual.sql.gz"
 
   # Load must resolve the module fixture, shadowing the library one.
   upkeep_sql "UPDATE upkeep_probe SET marker='scribbled' WHERE id=1;"
-  run ddev fixture-load dual
+  run ddev upkeep-fixture-load dual
   assert_success
   assert_output --partial "'dual' (module scope)"
   run upkeep_sql "SELECT marker FROM upkeep_probe WHERE id=1;"
   assert_output --partial "from-module"
 
-  # fixture-list labels both scopes and marks the shadowed library copy.
-  run ddev fixture-list
+  # upkeep-fixture-list labels both scopes and marks the shadowed library copy.
+  run ddev upkeep-fixture-list
   assert_success
   assert_output --regexp "dual +module"
   assert_output --regexp "dual +library +.*shadowed by module fixture"
 
   # Prune removes the materialized snapshot + metadata, never the dumps.
   assert_file_exist "${TESTDIR}/.ddev/upkeep/materialized/dual.sql"
-  run ddev fixture-prune
+  run ddev upkeep-fixture-prune
   assert_success
   assert_output --partial "Removing materialized snapshot"
   assert_file_not_exist "${TESTDIR}/.ddev/upkeep/materialized/dual.sql"
@@ -62,7 +62,7 @@ teardown() {
   assert_file_exist "${UPKEEP_FIXTURE_LIBRARY}/dual.sql.gz"
 
   # A pruned fixture is still loadable from its dump (rebuilds the snapshot).
-  run ddev fixture-load dual
+  run ddev upkeep-fixture-load dual
   assert_success
   assert_output --partial "(first-use path"
 }
@@ -75,29 +75,29 @@ teardown() {
   # Default module-destination create must attempt drush sql:sanitize.
   # This bare project has no drush, so the attempt fails loudly — proving the
   # sanitize step runs by default and that its failure aborts the create.
-  run ddev fixture-create sanitized --dest=module
+  run ddev upkeep-fixture-create sanitized --dest=module
   assert_failure
   assert_output --partial "sanitizing the database with 'drush sql:sanitize'"
   assert_output --partial "'drush sql:sanitize' failed"
   assert_file_not_exist "${TESTDIR}/tests/fixtures/sanitized.sql.gz"
 
   # --no-sanitize skips the sanitize step entirely and succeeds without drush.
-  run ddev fixture-create sanitized --dest=module --no-sanitize
+  run ddev upkeep-fixture-create sanitized --dest=module --no-sanitize
   assert_success
   refute_output --partial "sanitizing"
   assert_file_exist "${TESTDIR}/tests/fixtures/sanitized.sql.gz"
 
   # Missing fixture name exits non-zero with a clear message.
-  run ddev fixture-load
+  run ddev upkeep-fixture-load
   assert_failure
   assert_output --partial "Missing fixture name"
 
-  run ddev fixture-create
+  run ddev upkeep-fixture-create
   assert_failure
   assert_output --partial "Missing fixture name"
 
   # Unknown fixture name exits non-zero and says where it looked.
-  run ddev fixture-load no-such-fixture
+  run ddev upkeep-fixture-load no-such-fixture
   assert_failure
   assert_output --partial "Fixture 'no-such-fixture' not found"
 }

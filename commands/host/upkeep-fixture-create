@@ -3,14 +3,14 @@
 #ddev-generated
 ## Command provided by the upkeep add-on (https://github.com/owenbush/ddev-upkeep)
 ## Description: Create a named fixture (gzipped SQL dump) from the current database. Sanitizes by default when the destination is the module repo. Warns when the dump exceeds 5 MB (override with UPKEEP_FIXTURE_SIZE_WARN_MB).
-## Usage: fixture-create <name> [--dest=module|library] [--no-sanitize]
-## Example: "ddev fixture-create smoke" or "ddev fixture-create smoke --dest=library" or "ddev fixture-create smoke --no-sanitize"
+## Usage: upkeep-fixture-create <name> [--dest=module|library] [--no-sanitize]
+## Example: "ddev upkeep-fixture-create smoke" or "ddev upkeep-fixture-create smoke --dest=library" or "ddev upkeep-fixture-create smoke --no-sanitize"
 
 set -eu -o pipefail
 
 # shellcheck disable=SC1091
 . "${DDEV_APPROOT}/.ddev/upkeep/fixtures-lib.sh"
-UPKEEP_COMMAND_NAME="fixture-create"
+UPKEEP_COMMAND_NAME="upkeep-fixture-create"
 upkeep_load_env
 
 name=""
@@ -25,7 +25,7 @@ for arg in "$@"; do
       ;;
     --no-sanitize) sanitize="no" ;;
     --*)
-      upkeep_error "Unknown flag '$arg'. Usage: ddev fixture-create <name> [--dest=module|library] [--no-sanitize]"
+      upkeep_error "Unknown flag '$arg'. Usage: ddev upkeep-fixture-create <name> [--dest=module|library] [--no-sanitize]"
       exit 1
       ;;
     *)

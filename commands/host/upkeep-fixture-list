@@ -3,14 +3,14 @@
 #ddev-generated
 ## Command provided by the upkeep add-on (https://github.com/owenbush/ddev-upkeep)
 ## Description: List available fixtures in both scopes (module tests/fixtures/ and the shared library), with dump size and whether a materialized snapshot exists.
-## Usage: fixture-list
-## Example: "ddev fixture-list"
+## Usage: upkeep-fixture-list
+## Example: "ddev upkeep-fixture-list"
 
 set -eu -o pipefail
 
 # shellcheck disable=SC1091
 . "${DDEV_APPROOT}/.ddev/upkeep/fixtures-lib.sh"
-UPKEEP_COMMAND_NAME="fixture-list"
+UPKEEP_COMMAND_NAME="upkeep-fixture-list"
 upkeep_load_env
 
 module_dir="$(upkeep_module_fixtures_dir)"
