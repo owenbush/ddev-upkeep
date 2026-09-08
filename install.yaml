@@ -20,12 +20,33 @@ project_files:
 post_install_actions:
   - |
     #ddev-description:Removing the superseded un-namespaced fixture commands
-    for old in fixture-create fixture-load fixture-list fixture-prune; do
-      file=".ddev/commands/host/${old}"
-      if [ -f "${file}" ] && grep -q 'owenbush/ddev-upkeep' "${file}"; then
-        rm -f "${file}"
-        echo "Removed superseded command 'ddev ${old}' — it is now 'ddev upkeep-${old}'."
-      fi
-    done
+    # The command directory is resolved rather than assumed. A relative
+    # ".ddev/commands/host" is only right if the action runs from the project
+    # root, and it does not — the first version of this used one, found
+    # nothing, removed nothing and reported success, because a `[ -f ]` guard
+    # that misses is indistinguishable from a file that was never there.
+    if [ -n "${DDEV_APPROOT:-}" ] && [ -d "${DDEV_APPROOT}/.ddev/commands/host" ]; then
+      hostdir="${DDEV_APPROOT}/.ddev/commands/host"
+    elif [ -d "commands/host" ]; then
+      hostdir="commands/host"
+    elif [ -d ".ddev/commands/host" ]; then
+      hostdir=".ddev/commands/host"
+    else
+      echo "Could not find the host command directory; leaving any old fixture commands in place."
+      hostdir=""
+    fi
+
+    if [ -n "${hostdir}" ]; then
+      for old in fixture-create fixture-load fixture-list fixture-prune; do
+        file="${hostdir}/${old}"
+        # Guarded on the file being ours. Somebody else's `ddev fixture-load`
+        # is not this add-on's to delete, and an add-on that removes a command
+        # it did not write is worse than one that leaves litter.
+        if [ -f "${file}" ] && grep -q 'owenbush/ddev-upkeep' "${file}"; then
+          rm -f "${file}"
+          echo "Removed superseded command 'ddev ${old}' — it is now 'ddev upkeep-${old}'."
+        fi
+      done
+    fi
 
 ddev_version_constraint: '>= v1.24.10'

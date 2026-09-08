@@ -56,7 +56,16 @@ EOF
 }
 
 @test "a fixture-load belonging to somebody else is left alone" {
+  # One of ours planted alongside, deliberately. Without it this test passes
+  # whenever the cleanup does not run at all — which is exactly what happened
+  # the first time: the action looked in the wrong directory, removed nothing,
+  # reported success, and this assertion was satisfied by a cleanup that never
+  # happened. A guard that misses looks identical to a file that was never
+  # there, so the test has to prove the cleanup ran before it can prove the
+  # cleanup was careful.
   mkdir -p "${TESTDIR}/.ddev/commands/host"
+  write_old_command "fixture-list"
+
   cat > "${TESTDIR}/.ddev/commands/host/fixture-load" <<'EOF'
 #!/usr/bin/env bash
 ## Description: not this add-on's command
@@ -66,6 +75,8 @@ EOF
 
   run ddev add-on get "${DIR}"
   assert_success
+
+  assert_file_not_exist "${TESTDIR}/.ddev/commands/host/fixture-list"
 
   assert_file_exist "${TESTDIR}/.ddev/commands/host/fixture-load"
   run cat "${TESTDIR}/.ddev/commands/host/fixture-load"
