@@ -218,8 +218,8 @@ upkeep_module_name() {
 upkeep_enabled_extensions() {
   local kind
   for kind in module theme; do
-    ddev drush config:get core.extension "$kind" --format=json 2>/dev/null \
-      | grep -oE '"[a-z0-9_]+":' | tr -d '":'
+    { ddev drush config:get core.extension "$kind" --format=json 2>/dev/null || true; } \
+      | grep -oE '"[a-z0-9_]+":' | tr -d '":' || true
   done | sort -u
 }
 
@@ -270,7 +270,12 @@ upkeep_extension_present() {
 # Write the sidecar for a dump that has just been created.
 upkeep_write_manifest() {
   local manifest="$1" core_version core_major extensions requirements
-  core_version="$(ddev drush status --field=drupal-version 2>/dev/null | tr -d '[:space:]')"
+  # `|| true` inside every substitution, not around the assignment: these run
+  # under `set -e`, an assignment carries its substitution's exit status, and
+  # a project without drush — a fixture captured before Drupal is installed,
+  # or any non-Drupal project — must produce a smaller manifest rather than
+  # kill the command that has just written a good dump.
+  core_version="$(ddev drush status --field=drupal-version 2>/dev/null | tr -d '[:space:]' || true)"
   core_major="${core_version%%.*}"
   extensions="$(upkeep_enabled_extensions || true)"
   requirements="$(upkeep_project_requirements || true)"
@@ -349,7 +354,7 @@ upkeep_satisfy_manifest() {
   want_core="$(upkeep_manifest_scalar "$manifest" core)"
   if [ -n "$want_core" ]; then
     local have_core
-    have_core="$(ddev drush status --field=drupal-version 2>/dev/null | tr -d '[:space:]')"
+    have_core="$(ddev drush status --field=drupal-version 2>/dev/null | tr -d '[:space:]' || true)"
     have_core="${have_core%%.*}"
     if [ -n "$have_core" ] && [ "$want_core" != "$have_core" ]; then
       upkeep_error "Fixture '${name}' was captured on Drupal ${want_core} and this site is Drupal ${have_core}. Loading it would import a database built against different core schemas. Capture a fixture per core version, or load this one in a Drupal ${want_core} environment."
