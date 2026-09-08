@@ -10,6 +10,11 @@ of the Upkeep orchestrator, also usable standalone. User docs: `README.md`.
   `.ddev/` (requires ddev >= 1.24.10).
 - `commands/host/upkeep-fixture-{create,load,list,prune}` — the four host commands;
   thin argument parsing over the shared library.
+- Each dump has a generated sidecar `<name>.yml` recording the core major,
+  the enabled extensions and the composer requirements it needs. A dump names
+  code it does not carry, so loading satisfies the manifest (installing
+  declared packages) or refuses before touching the database. A fixture
+  without a sidecar loads exactly as it did before they existed.
 - `upkeep/fixtures-lib.sh` — all shared logic: env overlay
   (`.ddev/.env.upkeep`, caller env wins), fixture-name validation, scope
   resolution (module `tests/fixtures/` first, then
