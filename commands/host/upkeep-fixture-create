@@ -80,6 +80,10 @@ if ! ddev export-db --file="$dump_path" --gzip; then
   exit 1
 fi
 
+manifest_path="$(upkeep_manifest_path "$dump_path")"
+echo "Recording what the dump needs in ${manifest_path##*/} ..."
+upkeep_write_manifest "$manifest_path"
+
 size_bytes="$(upkeep_file_size_bytes "$dump_path")"
 warn_mb="${UPKEEP_FIXTURE_SIZE_WARN_MB:-$UPKEEP_DEFAULT_SIZE_WARN_MB}"
 warn_bytes=$((warn_mb * 1024 * 1024))

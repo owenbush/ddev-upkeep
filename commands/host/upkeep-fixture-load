@@ -32,6 +32,10 @@ fi
 scope="${resolved%%$'\t'*}"
 dump_path="${resolved#*$'\t'}"
 
+# Before anything touches the database: the dump names code, and this is
+# where the codebase is made able to hold it — or the load is refused.
+upkeep_satisfy_manifest "$(upkeep_manifest_path "$dump_path")" "$name"
+
 artifact="$(upkeep_materialized_file "$name")"
 meta_file="$(upkeep_meta_file "$name")"
 engine="$(upkeep_engine_id)"

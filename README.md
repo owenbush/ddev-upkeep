@@ -58,7 +58,7 @@ Update any scripts or CI that call the old names; there is no alias.
 
 | Command | Description |
 | ------- | ----------- |
-| `ddev upkeep-fixture-create <name> [--dest=module\|library] [--no-sanitize]` | Dump the current DB to a portable fixture (`<name>.sql.gz`). Sanitizes via `drush sql:sanitize` by default when destined for the module repo. Warns when the dump exceeds 5 MB (`UPKEEP_FIXTURE_SIZE_WARN_MB`) |
+| `ddev upkeep-fixture-create <name> [--dest=module\|library] [--no-sanitize]` | Dump the current DB to a portable fixture (`<name>.sql.gz`) and write its manifest (`<name>.yml`). Sanitizes via `drush sql:sanitize` by default when destined for the module repo. Warns when the dump exceeds 5 MB (`UPKEEP_FIXTURE_SIZE_WARN_MB`) |
 | `ddev upkeep-fixture-load <name>` | Load a fixture: first use imports the dump and materializes a snapshot; later loads restore the snapshot (fast path). Module `tests/fixtures/` shadows the shared library |
 | `ddev upkeep-fixture-list` | List fixtures in both scopes with size and snapshot state |
 | `ddev upkeep-fixture-prune` | Delete this project's disposable materialized snapshots (never the `.sql.gz` dumps) |
@@ -66,6 +66,61 @@ Update any scripts or CI that call the old names; there is no alias.
 | `ddev logs -s upkeep` | Check Upkeep logs |
 
 Fixtures resolve module-first: `tests/fixtures/<name>.sql.gz` in the module checkout, then the shared library (`UPKEEP_FIXTURE_LIBRARY`, defaulting to `$UPKEEP_COCKPIT/fixtures`, defaulting to `~/.upkeep/fixtures`).
+
+## What a fixture needs: the manifest
+
+A dump is not a self-contained artifact. It encodes references to *code* —
+enabled extensions, plugin IDs inside config entities, field types, schema
+versions — and captures none of it. Import one into a codebase that does not
+provide that code and Drupal cannot build its container; the failure lands in
+whatever ran next, and reads as though that thing is broken.
+
+So every dump gets a sidecar beside it:
+
+```
+tests/fixtures/smoke.sql.gz     # the dump, unchanged
+tests/fixtures/smoke.yml        # what it needs in order to mean anything
+```
+
+```yaml
+core: '11'
+core_version: '11.4.6'
+db_engine: 'mariadb:10.11'
+created_at: '2026-09-08T18:00:00Z'
+require:
+  drupal/admin_toolbar: '^3.4'
+extensions:
+  - admin_toolbar
+  - node
+  - pathauto
+```
+
+**It is generated, never hand-written.** `upkeep-fixture-create` already has
+the database open and the project's `composer.json` in front of it, so it
+reads the enabled extensions from `core.extension` and the requirements from
+the project's own direct dependencies, minus core, drush and the module the
+project is a checkout of. Nothing to remember and nothing to keep in step.
+
+`upkeep-fixture-load` then makes the codebase able to hold the dump, or
+refuses before touching the database:
+
+1. **Core major must match.** A dump captured on Drupal 11 is not loadable on
+   Drupal 10, and finding that out through a schema error later helps nobody.
+2. **Declared packages are installed** if the project does not already have
+   them, with `ddev composer require`. What it installs is printed.
+3. **Every declared extension must then be present.** If one still is not —
+   a custom module, or a package the manifest does not name — the load is
+   refused and the missing extensions are listed.
+
+Refusing happens *before* the import, so a fixture that cannot work leaves the
+database exactly as it was rather than half-replaced.
+
+A dump with no sidecar behaves exactly as fixtures did before manifests
+existed: it is imported, and nothing is checked. Nothing that already works
+stops working.
+
+The dump itself is untouched by any of this, so `gunzip -c <name>.sql.gz` and
+import it with whatever you like remains true.
 
 ## The fixture model: dumps vs. snapshots
 
@@ -106,8 +161,11 @@ or not you or your co-maintainers use Upkeep or this add-on.
 
 - **Path.** Database fixtures live in `tests/fixtures/` in the module
   repository, alongside the module's other test resources.
-- **Format and naming.** One gzipped SQL dump per fixture:
-  `tests/fixtures/<name>.sql.gz`. Names are lowercase, filesystem-safe
+- **Format and naming.** One gzipped SQL dump per fixture,
+  `tests/fixtures/<name>.sql.gz`, and its generated manifest,
+  `tests/fixtures/<name>.yml`. Commit both: the dump is what the fixture *is*,
+  the manifest is what it *needs*, and a dump whose requirements nobody
+  recorded is a dump that only works on the machine it was made on. Names are lowercase, filesystem-safe
   (letters, digits, dot, dash, underscore), and describe the state the
   fixture provides — e.g. `smoke.sql.gz`, `two-vocabularies.sql.gz`,
   `upgrade-from-2x.sql.gz`.
