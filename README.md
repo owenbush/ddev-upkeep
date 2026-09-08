@@ -27,17 +27,16 @@ ddev restart
 
 After installation, make sure to commit the `.ddev` directory to version control.
 
-> **Until this repository is public**, `ddev add-on get owenbush/ddev-upkeep`
-> returns a 404. Install from a local checkout instead:
->
-> ```bash
-> ddev add-on get /path/to/ddev-upkeep
-> ddev restart
-> ```
->
-> Upkeep orchestrator users: set `UPKEEP_ADDON_SOURCE=/path/to/ddev-upkeep`
-> and Upkeep will install the add-on from there. Both are temporary until
-> publication.
+To pin a release, or to install from a checkout while developing the add-on:
+
+```bash
+ddev add-on get owenbush/ddev-upkeep --version 1.0.0
+ddev add-on get /path/to/ddev-upkeep
+```
+
+[Upkeep](https://github.com/owenbush/upkeep) installs this add-on itself, at a
+pinned release, into every environment it provisions — set
+`UPKEEP_ADDON_SOURCE=/path/to/ddev-upkeep` to point it at a checkout instead.
 
 ### Upgrading from the un-namespaced commands
 
