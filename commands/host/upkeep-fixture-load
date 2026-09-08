@@ -3,20 +3,20 @@
 #ddev-generated
 ## Command provided by the upkeep add-on (https://github.com/owenbush/ddev-upkeep)
 ## Description: Load a named fixture into the database. First load imports the SQL dump and materializes a snapshot; later loads restore the snapshot (fast path). Resolution is module tests/fixtures/ first, then the shared library.
-## Usage: fixture-load <name>
-## Example: "ddev fixture-load smoke"
+## Usage: upkeep-fixture-load <name>
+## Example: "ddev upkeep-fixture-load smoke"
 
 set -eu -o pipefail
 
 # shellcheck disable=SC1091
 . "${DDEV_APPROOT}/.ddev/upkeep/fixtures-lib.sh"
-UPKEEP_COMMAND_NAME="fixture-load"
+UPKEEP_COMMAND_NAME="upkeep-fixture-load"
 upkeep_load_env
 
 name="${1:-}"
 upkeep_require_name "$name"
 if [ "$#" -gt 1 ]; then
-  upkeep_error "Unexpected extra argument '${2}'. Usage: ddev fixture-load <name>"
+  upkeep_error "Unexpected extra argument '${2}'. Usage: ddev upkeep-fixture-load <name>"
   exit 1
 fi
 upkeep_require_running
@@ -26,7 +26,7 @@ if ! resolved="$(upkeep_resolve_fixture "$name")"; then
   if upkeep_is_module_checkout; then
     searched="$(upkeep_module_fixtures_dir)/${name}.sql.gz, then ${searched}"
   fi
-  upkeep_error "Fixture '${name}' not found. Searched: ${searched}. Run 'ddev fixture-list' to see available fixtures."
+  upkeep_error "Fixture '${name}' not found. Searched: ${searched}. Run 'ddev upkeep-fixture-list' to see available fixtures."
   exit 1
 fi
 scope="${resolved%%$'\t'*}"

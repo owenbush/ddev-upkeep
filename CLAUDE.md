@@ -8,7 +8,7 @@ of the Upkeep orchestrator, also usable standalone. User docs: `README.md`.
 
 - `install.yaml` — add-on manifest: the files installed into a project's
   `.ddev/` (requires ddev >= 1.24.10).
-- `commands/host/fixture-{create,load,list,prune}` — the four host commands;
+- `commands/host/upkeep-fixture-{create,load,list,prune}` — the four host commands;
   thin argument parsing over the shared library.
 - `upkeep/fixtures-lib.sh` — all shared logic: env overlay
   (`.ddev/.env.upkeep`, caller env wins), fixture-name validation, scope

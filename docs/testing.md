@@ -42,10 +42,10 @@ The shim must live under your real `$HOME` when docker only mounts `$HOME`
   working tree (and, `release`-tagged, from the latest GitHub release).
 - `fixtures-roundtrip.bats` — the core story: create a fixture, mutate the
   DB, load restores the fixture state, a second load restores via the
-  materialized snapshot (fast path), `fixture-list` reports it.
+  materialized snapshot (fast path), `upkeep-fixture-list` reports it.
 - `fixtures-resolution.bats` — module fixtures shadow same-named library
-  fixtures; `fixture-prune` removes only materialized snapshots (never
-  dumps); module-destination `fixture-create` sanitizes by default
+  fixtures; `upkeep-fixture-prune` removes only materialized snapshots (never
+  dumps); module-destination `upkeep-fixture-create` sanitizes by default
   (`--no-sanitize` skips it); missing/unknown fixture names exit non-zero.
 
 Sanitization is asserted via its failure mode in the bare scratch project

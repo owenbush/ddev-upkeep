@@ -58,7 +58,7 @@ upkeep_error() {
 upkeep_require_name() {
   local name="${1:-}"
   if [ -z "$name" ]; then
-    upkeep_error "Missing fixture name. Usage: ddev ${UPKEEP_COMMAND_NAME:-fixture-<cmd>} <name>"
+    upkeep_error "Missing fixture name. Usage: ddev ${UPKEEP_COMMAND_NAME:-upkeep-fixture-<cmd>} <name>"
     exit 1
   fi
   case "$name" in

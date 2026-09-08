@@ -3,18 +3,18 @@
 #ddev-generated
 ## Command provided by the upkeep add-on (https://github.com/owenbush/ddev-upkeep)
 ## Description: Delete this project's disposable materialized fixture snapshots (and their metadata). Never touches the portable .sql.gz dumps; they can rebuild the snapshots at any time.
-## Usage: fixture-prune
-## Example: "ddev fixture-prune"
+## Usage: upkeep-fixture-prune
+## Example: "ddev upkeep-fixture-prune"
 
 set -eu -o pipefail
 
 # shellcheck disable=SC1091
 . "${DDEV_APPROOT}/.ddev/upkeep/fixtures-lib.sh"
-UPKEEP_COMMAND_NAME="fixture-prune"
+UPKEEP_COMMAND_NAME="upkeep-fixture-prune"
 upkeep_load_env
 
 if [ "$#" -gt 0 ]; then
-  upkeep_error "fixture-prune takes no arguments; it removes all of this project's materialized fixture snapshots."
+  upkeep_error "upkeep-fixture-prune takes no arguments; it removes all of this project's materialized fixture snapshots."
   exit 1
 fi
 
@@ -55,5 +55,5 @@ fi
 if [ "$removed" -eq 0 ]; then
   echo "No materialized fixture snapshots to remove for project '${DDEV_PROJECT:-?}'."
 else
-  echo "Removed ${removed} materialized snapshot(s). Fixture dumps (.sql.gz) were not touched; the next 'ddev fixture-load' will rebuild snapshots from them."
+  echo "Removed ${removed} materialized snapshot(s). Fixture dumps (.sql.gz) were not touched; the next 'ddev upkeep-fixture-load' will rebuild snapshots from them."
 fi
